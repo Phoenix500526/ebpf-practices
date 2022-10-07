@@ -1,0 +1,21 @@
+#include <linux/skbuff.h>
+#include <linux/ip.h>
+#include <linux/socket.h>
+#include <linux/netdevice.h>
+
+kprobe:kfree_skb /comm=="curl"/
+{
+    // 1. the first parameter is struct sk_buff
+    $skb = (struct sk_buff*)arg0;
+
+    // 2. grab source IP and destination IP from IP header
+    $iph = (struct iphdr*)($skb->head + $skb->network_header);
+    $sip = ntop(AF_INET, $iph->saddr);
+    $dip = ntop(AF_INET, $iph->daddr);
+
+    // 3. only process TCP protocol
+    if($iph->protocol == IPPROTO_TCP) {
+        // 4. print sip, dip and kstack
+        printf("%s(%d) - SKB dropped: %s->%s, kstack: %s\n", comm, pid, $sip, $dip, kstack);
+    }
+}
